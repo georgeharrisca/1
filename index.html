@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>MusicXML Part Viewer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="mxl-tool">
+    <h2>Select an MXL file</h2>
+    <input type="file" id="fileInput" accept=".mxl" />
+    <pre id="output">Waiting for file...</pre>
+  </div>
+
+  <script src="https://unpkg.com/fflate@0.7.4/umd/index.js"></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const output = document.getElementById("output");
+      const fileInput = document.getElementById("fileInput");
+
+      const log = (...args) => {
+        output.innerText += args.join(" ") + "\n";
+      };
+
+      const fflate = window.fflate;
+      if (!fflate) {
+        output.textContent = "Error: fflate did not load.";
+        return;
+      }
+
+      log("Tool initialized. Waiting for file...");
+
+      fileInput.addEventListener("change", async (event) => {
+        output.innerText = "Reading file...";
+        const file = event.target.files[0];
+        if (!file) {
+          log("No file selected.");
+          return;
+        }
+
+        try {
+          const buffer = await file.arrayBuffer();
+          const zip = fflate.unzipSync(new Uint8Array(buffer));
+          log("Unzipped files:");
+          Object.keys(zip).forEach(f => log("  •", f));
+
+          const containerPath = Object.keys(zip).find(p =>
+            p.toLowerCase().includes('meta-inf') && p.toLowerCase().endsWith('container.xml')
+          );
+          if (!containerPath) {
+            output.innerText = "Error: container.xml not found.";
+            return;
+          }
+
+          const containerXML = new TextDecoder().decode(zip[containerPath]);
+          const parser = new DOMParser();
+          const containerDoc = parser.parseFromString(containerXML, "application/xml");
+
+          const rootfile = containerDoc.querySelector("rootfile");
+          const musicXMLPath = rootfile?.getAttribute("full-path");
+          if (!musicXMLPath || !zip[musicXMLPath]) {
+            output.innerText = "Error: .musicxml file not found.";
+            return;
+          }
+
+          const musicXML = new TextDecoder().decode(zip[musicXMLPath]);
+          const musicDoc = parser.parseFromString(musicXML, "application/xml");
+
+          const scoreParts = musicDoc.getElementsByTagName("score-part");
+          output.innerText = "Score Parts:\n";
+          for (let i = 0; i < scoreParts.length; i++) {
+            const part = scoreParts[i];
+            const id = part.getAttribute("id");
+            const nameNode = part.getElementsByTagName("part-name")[0];
+            const name = nameNode?.textContent || "(no name)";
+            log("- " + id + ": " + name);
+          }
+        } catch (err) {
+          output.innerText = "An error occurred:\n" + err.message;
+          console.error(err);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

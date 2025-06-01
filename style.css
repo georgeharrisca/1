@@ -1,0 +1,17 @@
+body {
+  font-family: sans-serif;
+  margin: 2em;
+  background: #f9f9f9;
+}
+.mxl-tool input {
+  margin-bottom: 1em;
+}
+pre {
+  background: #eee;
+  padding: 1em;
+  border-radius: 6px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  min-height: 200px;
+  max-height: 400px;
+}
